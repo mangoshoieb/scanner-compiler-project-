@@ -4,14 +4,6 @@ A simple **browser-based scanner (lexer)** built with **HTML, CSS, and JavaScrip
 It reads source code, breaks it into **tokens**, and displays each token’s **type, lexeme, line, and column** in a beautiful, modern interface.
 
 ---
-
-## 🚀 Live Demo
-
-👉 [View Live on GitHub Pages](https://github.com/mangoshoieb/scanner-compiler-project-.git) 
-_(or replace with your deployment link if you’re using Vercel, Netlify, etc.)_
-
----
-
 ## 🧩 Features
 
 - 🪄 **Real-time scanning** of JavaScript-like syntax  
@@ -49,8 +41,6 @@ It reads source code, breaks it into **tokens**, and displays each token’s **t
 
 ![Scanner Preview](assets/Screenshot_24-10-2025_22172_.jpeg)
 
-> _You can replace this image with your own screenshot — just save it in an `assets` folder and adjust the path._
-
 ---
 ## 🧩 Features
 
@@ -76,5 +66,3 @@ It converts your source code into a list of tokens, which are the building block
 - **SpecialCharceter** – symbols like `{}`, `()`, `;`  
 - **Comment** – single-line `//` or multi-line `/* ... */`  
 - **Unknown** – unrecognized characters  
-
--
