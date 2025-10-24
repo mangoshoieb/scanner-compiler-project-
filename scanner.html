@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Simple JS Scanner / Lexer</title>
+    <title>JavaScript Scanner / Lexer</title>
+    <style>
+      /* === Global styles === */
+      body {
+        font-family: "Inter", system-ui, sans-serif;
+        background: linear-gradient(135deg, #dbeafe, #f0f9ff);
+        color: #111827;
+        margin: 0;
+        padding: 40px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 100vh;
+      }
+
+      h1 {
+        font-size: 28px;
+        margin-bottom: 6px;
+        font-weight: 600;
+        color: #1e3a8a;
+        text-align: center;
+      }
+
+      p.muted {
+        color: #475569;
+        text-align: center;
+        max-width: 700px;
+        margin-bottom: 40px;
+      }
+
+      /* === Layout === */
+      .layout {
+        display: grid;
+        grid-template-columns: 1fr 400px;
+        gap: 40px;
+        width: 100%;
+        max-width: 1100px;
+      }
+
+      /* === Source box === */
+      .editor {
+        background: rgba(255, 255, 255, 0.85);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+        border-radius: 16px;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+      }
+
+      textarea {
+        width: 100%;
+        height: 400px;
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+        background: #f8fafc;
+        resize: vertical;
+        font-family: monospace;
+        font-size: 14px;
+        line-height: 1.4;
+        color: #1e293b;
+      }
+
+      /* === Buttons === */
+      .controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+
+      button {
+        padding: 8px 14px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.2s ease;
+      }
+
+      button.primary {
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: #fff;
+      }
+      button.primary:hover {
+        background: linear-gradient(135deg, #1d4ed8, #1e40af);
+      }
+      button.secondary {
+        background: #f1f5f9;
+        color: #334155;
+      }
+      button.secondary:hover {
+        background: #e2e8f0;
+      }
+
+      /* === Tokens panel === */
+      .tokens {
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+      }
+
+      .tokens h3 {
+        margin: 0 0 6px;
+        color: #1e3a8a;
+      }
+
+      #results {
+        background: #e0f2fe;
+        border-radius: 10px;
+        padding: 8px;
+        height: 420px;
+        overflow: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 8px 10px;
+        border-bottom: 1px solid #bfdbfe;
+        font-family: monospace;
+        font-size: 13px;
+      }
+
+      th {
+        background: #bae6fd;
+        color: #1e3a8a;
+        text-align: left;
+        font-weight: 600;
+      }
+
+      tr:hover {
+        background: #dbeafe;
+      }
+
+      .muted small {
+        font-size: 13px;
+        color: #64748b;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🧠 JavaScript Scanner</h1>
+    <p class="muted">
+      Enter or paste your source code below and click <strong>Scan</strong> to
+      generate tokens.
+    </p>
+
+    <div class="layout">
+      <div class="editor" style="max-width: 520px;">
+        <div class="controls" style="margin-top: 10px;">
+          <button id="scanBtn" class="primary">Scan</button>
+          <button id="clearBtn" class="secondary">Clear</button>
+          <button id="sampleBtn" class="secondary">Load sample</button>
+        </div>
+        <textarea id="source" spellcheck="false" style="max-width: 500px; margin-top: 20px;">
+// Sample code
+function add(a, b) {
+  // return sum
+  return a + b * 2.5;
+}
+
+let s = "hello \"world\"";
+/* multi-line
+   comment */
+if (add(1,2) > 3) console.log(s);
+</textarea
+        >
+      </div>
+
+      <div class="tokens" style="max-width: 700px;">
+        <h3 >Token Results</h3>
+        <div class="muted" style="margin-bottom: 10px;"><small>Click a token row to copy its lexeme.</small></div>
+        <div id="results"></div>
+      </div>
+    </div>
+
+    <script>
+      const TokenType = {
+        Keyword: "Keyword",
+        Identifier: "Identifier",
+        Number: "Number",
+        String: "String",
+        Operator: "Operator",
+        Punctuation: "special Charceter",
+        Comment: "Comment",
+        Whitespace: "Whitespace",
+        Unknown: "Unknown",
+      };
+
+      const keywords = new Set([
+        "if",
+        "else",
+        "for",
+        "while",
+        "return",
+        "function",
+        "var",
+        "let",
+        "const",
+        "true",
+        "false",
+        "null",
+        "new",
+        "class",
+        "switch",
+        "case",
+        "break",
+        "continue",
+      ]);
+
+      function isLetter(ch) {
+        return /[A-Za-z_]/.test(ch);
+      }
+      function isDigit(ch) {
+        return /[0-9]/.test(ch);
+      }
+      function isWhitespace(ch) {
+        return (
+          ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\f"
+        );
+      }
+
+      function scan(source) {
+        const tokens = [];
+        let i = 0;
+        let line = 1,
+          col = 1;
+
+        function peek(offset = 0) {
+          return source[i + offset] ?? "\0";
+        }
+        function next() {
+          const ch = source[i++] || "\0";
+          if (ch === "\n") {
+            line++;
+            col = 1;
+          } else col++;
+          return ch;
+        }
+        function addToken(type, value, tline, tcol) {
+          tokens.push({ type, value, line: tline, col: tcol });
+        }
+
+        while (i < source.length) {
+          const ch = peek();
+          const startLine = line,
+            startCol = col;
+
+          if (isWhitespace(ch)) {
+            next();
+            continue;
+          }
+
+          if (ch === "/" && peek(1) === "/") {
+            let buf = "";
+            while (peek() !== "\n" && peek() !== "\0") buf += next();
+            addToken(TokenType.Comment, "//" + buf, startLine, startCol);
+            continue;
+          }
+          if (ch === "/" && peek(1) === "*") {
+            let buf = next();
+            buf += next();
+            while (!(peek() === "*" && peek(1) === "/") && peek() !== "\0")
+              buf += next();
+            if (peek() === "*" && peek(1) === "/") {
+              buf += next();
+              buf += next();
+            }
+            addToken(TokenType.Comment, buf, startLine, startCol);
+            continue;
+          }
+
+          if (ch === '"' || ch === "'") {
+            const quote = next();
+            let buf = quote;
+            while (peek() !== quote && peek() !== "\0") {
+              if (peek() === "\\") {
+                buf += next();
+                buf += next();
+                continue;
+              }
+              buf += next();
+            }
+            if (peek() === quote) buf += next();
+            addToken(TokenType.String, buf, startLine, startCol);
+            continue;
+          }
+
+          if (isDigit(ch)) {
+            let buf = "";
+            while (isDigit(peek())) buf += next();
+            if (peek() === "." && isDigit(peek(1))) {
+              buf += next();
+              while (isDigit(peek())) buf += next();
+            }
+            addToken(TokenType.Number, buf, startLine, startCol);
+            continue;
+          }
+
+          if (isLetter(ch)) {
+            let buf = "";
+            while (isLetter(peek()) || isDigit(peek())) buf += next();
+            if (keywords.has(buf))
+              addToken(TokenType.Keyword, buf, startLine, startCol);
+            else addToken(TokenType.Identifier, buf, startLine, startCol);
+            continue;
+          }
+
+          const two = ch + peek(1);
+          const three = ch + peek(1) + peek(2);
+          const threeOps = new Set(["===", "!=="]);
+          const twoOps = new Set([
+            "==",
+            "!=",
+            "<=",
+            ">=",
+            "&&",
+            "||",
+            "++",
+            "--",
+            "+=",
+            "-=",
+            "*=",
+            "/=",
+            "=>",
+          ]);
+          const oneOps = new Set([
+            "+",
+            "-",
+            "*",
+            "%",
+            "=",
+            "<",
+            ">",
+            "!",
+            "&",
+            "|",
+            "^",
+            "~",
+            "?",
+          ]);
+
+          if (threeOps.has(three)) {
+            addToken(TokenType.Operator, three, startLine, startCol);
+            next();
+            next();
+            next();
+            continue;
+          }
+          if (twoOps.has(two)) {
+            addToken(TokenType.Operator, two, startLine, startCol);
+            next();
+            next();
+            continue;
+          }
+          if (oneOps.has(ch)) {
+            addToken(TokenType.Operator, ch, startLine, startCol);
+            next();
+            continue;
+          }
+
+          const punct = new Set([
+            ";",
+            ",",
+            "(",
+            ")",
+            "{",
+            "}",
+            "[",
+            "]",
+            ".",
+            ":",
+          ]);
+          if (punct.has(ch)) {
+            addToken(TokenType.Punctuation, ch, startLine, startCol);
+            next();
+            continue;
+          }
+
+          addToken(TokenType.Unknown, ch, startLine, startCol);
+          next();
+        }
+
+        return tokens;
+      }
+
+      const src = document.getElementById("source");
+      const scanBtn = document.getElementById("scanBtn");
+      const clearBtn = document.getElementById("clearBtn");
+      const sampleBtn = document.getElementById("sampleBtn");
+      const results = document.getElementById("results");
+
+      function renderTokens(tokens) {
+        if (tokens.length === 0) {
+          results.innerHTML = '<div class="muted">No tokens</div>';
+          return;
+        }
+        let html =
+          '<table><thead style="border-radiues=15px"><tr><th>Type</th><th>Lexeme</th><th style="width:30px">Line</th><th style="width:30px">Col</th></tr></thead><tbody>';
+        for (const t of tokens) {
+          html += `<tr data-lex="${escapeHtml(t.value)}"><td>${
+            t.type
+          }</td><td>${escapeHtml(t.value)}</td><td>${t.line}</td><td>${
+            t.col
+          }</td></tr>`;
+        }
+        html += "</tbody></table>";
+        results.innerHTML = html;
+
+        for (const tr of results.querySelectorAll("tr[data-lex]")) {
+          tr.addEventListener("click", () => {
+            const lex = tr.getAttribute("data-lex");
+            navigator.clipboard
+              ?.writeText(lex)
+              .then(() => {
+                tr.style.background = "#e6f0ff";
+                setTimeout(() => (tr.style.background = ""), 350);
+              })
+              .catch(() => {});
+          });
+        }
+      }
+
+      function escapeHtml(s) {
+        return (s + "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/\"/g, "&quot;");
+      }
+
+      scanBtn.addEventListener("click", () => {
+        const code = src.value;
+        const tokens = scan(code);
+        renderTokens(tokens);
+      });
+
+      clearBtn.addEventListener("click", () => {
+        src.value = "";
+        results.innerHTML = "";
+      });
+      sampleBtn.addEventListener("click", () => {
+        src.value = `// demo sample\nfunction sum(x,y){\n  return x + y * 10;\n}\nconsole.log(sum(2,3));`;
+      });
+
+      window.addEventListener("load", () => scanBtn.click());
+    </script>
+  </body>
+</html>
