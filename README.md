@@ -7,7 +7,7 @@ It reads source code, breaks it into **tokens**, and displays each token’s **t
 
 ## 🚀 Live Demo
 
-👉 [View Live on GitHub Pages](https://your-username.github.io/js-scanner)  
+👉 [View Live on GitHub Pages](https://github.com/mangoshoieb/scanner-compiler-project-.git) 
 _(or replace with your deployment link if you’re using Vercel, Netlify, etc.)_
 
 ---
