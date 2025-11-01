@@ -1,3 +1,4 @@
+
 # 🧠 JavaScript Scanner / Lexer
 
 A simple **browser-based scanner (lexer)** built with **HTML, CSS, and JavaScript**.  
@@ -5,13 +6,11 @@ It reads source code, breaks it into **tokens**, and displays each token’s **t
 
 ---
 
-## 🚀 Live Demo
+## 📸 Preview
 
-👉 [View Live on GitHub Pages](https://github.com/mangoshoieb/scanner-compiler-project-.git) 
-_(or replace with your deployment link if you’re using Vercel, Netlify, etc.)_
+![Scanner Preview](assets/Screenshot_24-10-2025_22172_.jpeg)
 
 ---
-
 ## 🧩 Features
 
 - 🪄 **Real-time scanning** of JavaScript-like syntax  
@@ -33,15 +32,6 @@ It converts your source code into a list of tokens, which are the building block
 - **Number** – numeric literals  
 - **String** – string literals (`"hello"`, `'world'`)  
 - **Operator** – arithmetic and logical operators  
-- **Punctuation** – symbols like `{}`, `()`, `;`  
+- **SpecialCharceter** – symbols like `{}`, `()`, `;`  
 - **Comment** – single-line `//` or multi-line `/* ... */`  
 - **Unknown** – unrecognized characters  
-
----
-
-## 🧰 How to Use
-
-1. Clone the repository  
-   ```bash
-   git clone https://github.com/your-username/js-scanner.git
-   cd js-scanner
