@@ -1,466 +1,611 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Simple JS Scanner / Lexer</title>
-    <title>JavaScript Scanner / Lexer</title>
-    <style>
-      /* === Global styles === */
-      body {
-        font-family: "Inter", system-ui, sans-serif;
-        background: linear-gradient(135deg, #dbeafe, #f0f9ff);
-        color: #111827;
-        margin: 0;
-        padding: 40px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        min-height: 100vh;
-      }
+<!doctype html>
+<html lang="ar">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Scanner + Parser </title>
+  <style>
+    body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;margin:20px;background:#fbfdff;color:#0f172a}
+    h1{color:#0369a1;margin-bottom:6px}
+    .row{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+    textarea{width:100%;height:300px;padding:12px;font-family:ui-monospace,monospace;font-size:13px;border-radius:8px;border:1px solid #e6eef8;background:#fff}
+    .panel{background:#fff;padding:14px;border-radius:12px;box-shadow:0 8px 24px rgba(2,6,23,0.04);flex:1;min-width:320px}
+    button{padding:8px 12px;border-radius:8px;border:0;background:#0ea5e9;color:#fff;cursor:pointer}
+    .controls{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+    pre{white-space:pre-wrap;font-family:ui-monospace,monospace;background:#f1f5f9;padding:10px;border-radius:8px}
+    table{width:100%;border-collapse:collapse;font-family:ui-monospace,monospace}
+    td,th{padding:6px;border-bottom:1px solid #eef6ff;text-align:left}
+    .error{color:#b91c1c;background:#fff0f0;padding:8px;border-radius:8px;margin:8px 0}
+    .ok{color:#065f46;background:#ecfdf5;padding:8px;border-radius:8px;margin:8px 0}
+    .small{font-size:13px;color:#475569}
+    .grammar{font-size:13px;background:#f8fafc;padding:10px;border-radius:8px}
+    /* scrollable outputs */
+    #tokens, #ast { max-height: 300px; overflow-y: auto; background: #f8fafc; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; }
+    #tokens::-webkit-scrollbar, #ast::-webkit-scrollbar { width: 8px; }
+    #tokens::-webkit-scrollbar-thumb, #ast::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1 style="margin-left: 37%;">Scanner & Parser </h1>
+  <!-- <p class="small">الملف يحتوي سكنر وبارسِر لنسخة مبسطة من لغة C. البارسِر يتحقق من الـ syntax ويبني AST. أدناه عينة كود، جرّب تغييرات فيها لترى الأخطاء النحوية.</p> -->
 
-      h1 {
-        font-size: 28px;
-        margin-bottom: 6px;
-        font-weight: 600;
-        color: #1e3a8a;
-        text-align: center;
-      }
+  <div class="row" style="margin-top:12px">
+    <div class="panel" style="flex:0.95">
+      <div class="controls">
+        <button id="scanBtn">Scan</button>
+        <button id="parseBtn">Parse</button>
+        <button id="validateBtn">Validate</button>
+        <button id="clearBtn">Clear</button>
+        <button id="loadBtn">Load sample</button>
+      </div>
+      <textarea id="source" spellcheck="false" style="max-width: 90%;">/* sample C */
+#include &lt;stdio.h&gt;
 
-      p.muted {
-        color: #475569;
-        text-align: center;
-        max-width: 700px;
-        margin-bottom: 40px;
-      }
-
-      /* === Layout === */
-      .layout {
-        display: grid;
-        grid-template-columns: 1fr 500px;
-        gap: 20px;
-        width: 100%;
-        max-width: 1100px;
-      }
-
-      /* === Source box === */
-      .editor {
-        background: rgba(255, 255, 255, 0.85);
-        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
-        border-radius: 16px;
-        padding: 20px;
-        display: flex;
-        flex-direction: column;
-      }
-
-      textarea {
-        width: 100%;
-        height: 400px;
-        padding: 12px;
-        border-radius: 10px;
-        border: 1px solid #cbd5e1;
-        background: #f8fafc;
-        resize: vertical;
-        font-family: monospace;
-        font-size: 14px;
-        line-height: 1.4;
-        color: #1e293b;
-      }
-
-      /* === Buttons === */
-      .controls {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 16px;
-      }
-
-      button {
-        padding: 8px 14px;
-        border-radius: 8px;
-        border: none;
-        cursor: pointer;
-        font-weight: 500;
-        transition: all 0.2s ease;
-      }
-
-      button.primary {
-        background: linear-gradient(135deg, #2563eb, #1d4ed8);
-        color: #fff;
-      }
-      button.primary:hover {
-        background: linear-gradient(135deg, #1d4ed8, #1e40af);
-      }
-      button.secondary {
-        background: #f1f5f9;
-        color: #334155;
-      }
-      button.secondary:hover {
-        background: #e2e8f0;
-      }
-
-      /* === Tokens panel === */
-      .tokens {
-        background: rgba(255, 255, 255, 0.9);
-        border-radius: 16px;
-        padding: 20px;
-        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
-      }
-
-      .tokens h3 {
-        margin: 0 0 6px;
-        color: #1e3a8a;
-      }
-
-      #results {
-        background: #e0f2fe;
-        border-radius: 10px;
-        padding: 8px;
-        height: 420px;
-        overflow: auto;
-      }
-
-      table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-
-      th,
-      td {
-        padding: 8px 10px;
-        border-bottom: 1px solid #bfdbfe;
-        font-family: monospace;
-        font-size: 13px;
-      }
-
-      th {
-        background: #bae6fd;
-        color: #1e3a8a;
-        text-align: left;
-        font-weight: 600;
-      }
-
-      tr:hover {
-        background: #dbeafe;
-      }
-
-      .muted small {
-        font-size: 13px;
-        color: #64748b;
-      }
-    </style>
-  </head>
-  <body>
-    <h1>🧠 JavaScript Scanner</h1>
-    <p class="muted">
-      Enter or paste your source code below and click <strong>Scan</strong> to
-      generate tokens.
-    </p>
-
-    <div class="layout">
-      <div class="editor" style="max-width: 520px">
-        <div class="controls" style="margin-top: 10px">
-          <button id="scanBtn" class="primary">Scan</button>
-          <button id="clearBtn" class="secondary">Clear</button>
-          <button id="sampleBtn" class="secondary">Load sample</button>
-        </div>
-        <textarea
-          id="source"
-          spellcheck="false"
-          style="max-width: 500px; margin-top: 20px"
-        >
-// Sample code
-function add(a, b) {
-  // return sum
-  return a + b * 2.5;
+int add(int a, int b) {
+  return a + b;
 }
 
-let s = "hello \"world\"";
-/* multi-line
-   comment */
-if (add(1,2) > 3) console.log(s);
-</textarea
-        >
-      </div>
+int main() {
+  int x = add(1, 2);
+  if (x > 2) {
+    x = x - 1;
+  }
+  for (int i = 0; i < 3; i = i + 1) {
+    x = x + i;
+  }
+  return 0;
+}
 
-      <div class="tokens" style="max-width: 700px">
-        <h3>Token Results</h3>
-        <div class="muted" style="margin-bottom: 10px">
-          <small>Click a token row to copy its lexeme.</small>
-        </div>
-        <div id="results"></div>
-      </div>
+/* Try syntax errors: remove a semicolon or a parenthesis */</textarea>
     </div>
 
-    <script>
-      const TokenType = {
-        Keyword: "Keyword",
-        Identifier: "Identifier",
-        Number: "Numeric constants",
-        String: "String",
-        Operator: "Operator",
-        Punctuation: "special Charceter",
-        Comment: "Comment",
-        Whitespace: "Whitespace",
-        Unknown: "Unknown",
-      };
+    <div class="panel" style="flex:1.05">
+      <h3>Tokens</h3>
+      <div id="tokens"><em>No tokens yet</em></div>
 
-      const keywords = new Set([
-        "if",
-        "else",
-        "for",
-        "while",
-        "return",
-        "function",
-        "var",
-        "let",
-        "const",
-        "true",
-        "false",
-        "null",
-        "new",
-        "class",
-        "switch",
-        "case",
-        "break",
-        "continue",
-      ]);
+      <h3 style="margin-top:12px">AST</h3>
+      <div id="ast"><em>No AST yet</em></div>
 
-      function isLetter(ch) {
-        return /[A-Za-z_]/.test(ch);
-      }
-      function isDigit(ch) {
-        return /[0-9]/.test(ch);
-      }
-      function isWhitespace(ch) {
-        return (
-          ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\f"
-        );
-      }
+      <h3 style="margin-top:12px">Status</h3>
+      <div id="status"><em>Idle</em></div>
+    </div>
+  </div>
 
-      function scan(source) {
-        const tokens = [];
-        let i = 0;
-        let line = 1,
-          col = 1;
+  <!-- <div style="margin-top:14px" class="panel">
+    <h3>Grammar (مبسطة، تغطي بنى C الأساسية)</h3>
+    <div class="grammar">
+<pre>
+TranslationUnit  -> (Preprocessor | Declaration | FunctionDef)*
+Declaration      -> TypeSpec InitDeclaratorList ';'
+InitDeclaratorList -> Declarator (',' Declarator)*
+Declarator       -> Identifier ('(' ParamList? ')' | Array?)?
+FunctionDef      -> TypeSpec Identifier '(' ParamList? ')' CompoundStmt
+ParamList        -> Param (',' Param)*
+Param            -> TypeSpec Declarator?
+TypeSpec         -> 'int'|'char'|'float'|'double'|'void'|'long'|'short' (const|static)?
+CompoundStmt     -> '{' (Declaration|Statement)* '}'
+Statement        -> ExprStmt | IfStmt | WhileStmt | ForStmt | ReturnStmt | CompoundStmt
+ExprStmt         -> Expression? ';'
+IfStmt           -> 'if' '(' Expression ')' Statement ('else' Statement)?
+WhileStmt        -> 'while' '(' Expression ')' Statement
+ForStmt          -> 'for' '(' (Declaration|Expression?) ';' Expression? ';' Expression? ')' Statement
+ReturnStmt       -> 'return' Expression? ';'
+Expression       -> Assignment
+Assignment       -> Logical (('='|'+='|'-='|'*='|'/=') Assignment)?
+Logical          -> Equality (('&&'|'||') Equality)*
+Equality         -> Relational (('=='|'!=') Relational)*
+Relational       -> Add (('<'|'>'|'<='|'>=') Add)*
+Add              -> Mul (('+'|'-') Mul)*
+Mul              -> Unary (('*'|'/'|'%') Unary)*
+Unary            -> ('!'|'~'|'+'|'-') Unary | Postfix
+Postfix          -> Primary ( '(' ArgList? ')' | '[' Expression ']' )*
+Primary          -> Identifier | Number | Char | String | '(' Expression ')'
+ArgList          -> Expression (',' Expression)*
+</pre>
+    </div>
+    <p class="small">هذا غرض عملي لتدقيق وبناء AST لجزء كبير من بنى C الشائعة. يمكن توسيع القواعد لتشمل المؤشرات، typedef، structs، إلخ لاحقاً.</p>
+  </div> -->
 
-        function peek(offset = 0) {
-          return source[i + offset] ?? "\0";
-        }
-        function next() {
-          const ch = source[i++] || "\0";
-          if (ch === "\n") {
-            line++;
-            col = 1;
-          } else col++;
-          return ch;
-        }
-        function addToken(type, value, tline, tcol) {
-          tokens.push({ type, value, line: tline, col: tcol });
-        }
+<script>
+/* -----------------------
+   Lexer / Scanner for C (simplified)
+   ----------------------- */
 
-        while (i < source.length) {
-          const ch = peek();
-          const startLine = line,
-            startCol = col;
+const TokenType = {
+  Keyword: 'Keyword', Identifier: 'Identifier', Number: 'Number', Char: 'Char', String: 'String',
+  Operator: 'Operator', Punct: 'Punct', Preproc: 'Preprocessor', Comment: 'Comment', EOF: 'EOF'
+};
 
-          if (isWhitespace(ch)) {
-            next();
+const keywords = new Set([
+  'if','else','for','while','return','break','continue',
+  'int','char','float','double','void','short','long','signed','unsigned','const','static','struct','typedef'
+]);
+
+function isLetter(c){ return /[A-Za-z_]/.test(c); }
+function isDigit(c){ return /[0-9]/.test(c); }
+
+function lexer(input){
+  let i=0, line=1, col=1;
+  const tokens = [];
+  const peek = (n=0) => input[i+n] ?? '\0';
+  const next = () => { const ch = input[i++]; if(ch==='\n'){ line++; col=1 } else col++; return ch; };
+
+  while(i < input.length){
+    let ch = peek();
+    // whitespace
+    if(/\s/.test(ch)){ next(); continue; }
+    // preprocessor directive starting with #
+    if(ch === '#'){
+      const startLine = line, startCol = col;
+      let buf = '';
+      while(peek() !== '\n' && peek() !== '\0') buf += next();
+      tokens.push({type: TokenType.Preproc, value: buf.trim(), line:startLine, col:startCol});
+      continue;
+    }
+    // comments
+    if(ch === '/' && peek(1) === '/'){
+      let buf = ''; next(); next();
+      while(peek() !== '\n' && peek() !== '\0') buf += next();
+      tokens.push({type: TokenType.Comment, value: '//' + buf, line, col});
+      continue;
+    }
+    if(ch === '/' && peek(1) === '*'){
+      let buf = ''; next(); next();
+      while(!(peek() === '*' && peek(1) === '/') && peek() !== '\0') buf += next();
+      if(peek() === '*' && peek(1) === '/') { buf += next(); buf += next(); }
+      tokens.push({type: TokenType.Comment, value: '/*' + buf, line, col});
+      continue;
+    }
+    // char literal
+    if(ch === "'"){
+      const startLine=line, startCol=col;
+      let s = next(); // opening '
+      while(peek() !== "'" && peek() !== '\0'){ if(peek()==='\\'){ s+=next(); s+=next(); continue; } s+=next(); }
+      if(peek()==="'") s += next();
+      tokens.push({type: TokenType.Char, value: s, line:startLine, col:startCol});
+      continue;
+    }
+    // string literal
+    if(ch === '"'){
+      const startLine=line, startCol=col;
+      let s = next();
+      while(peek() !== '"' && peek() !== '\0'){ if(peek()==='\\'){ s+=next(); s+=next(); continue; } s += next(); }
+      if(peek() === '"') s += next();
+      tokens.push({type: TokenType.String, value: s, line:startLine, col:startCol});
+      continue;
+    }
+    // number (int or float -- simple)
+    if(isDigit(ch)){
+      const startLine=line, startCol=col;
+      let num = '';
+      while(isDigit(peek())) num += next();
+      if(peek()==='.' && isDigit(peek(1))){ num += next(); while(isDigit(peek())) num += next(); }
+      tokens.push({type: TokenType.Number, value: num, line:startLine, col:startCol});
+      continue;
+    }
+    // identifier or keyword
+    if(isLetter(ch)){
+      const startLine=line, startCol=col;
+      let id = '';
+      while(isLetter(peek()) || isDigit(peek())) id += next();
+      tokens.push({type: keywords.has(id) ? TokenType.Keyword : TokenType.Identifier, value: id, line:startLine, col:startCol});
+      continue;
+    }
+    // multi-char ops (3)
+    const two = ch + peek(1), three = ch + peek(1) + peek(2);
+    if(['<<=','>>='].includes(three)){ const sl=line, sc=col; next();next();next(); tokens.push({type:TokenType.Operator,value:three,line:sl,col:sc}); continue; }
+    if(['==','!=','<=','>=','&&','||','++','--','+=','-=','*=','/=','%=', '<<', '>>'].includes(two)){ const sl=line, sc=col; next(); next(); tokens.push({type:TokenType.Operator,value:two,line:sl,col:sc}); continue; }
+    if('+-*/%=<>!&|^~?:'.includes(ch)){ const sl=line, sc=col; tokens.push({type:TokenType.Operator, value: next(), line:sl, col:sc}); continue; }
+    if(';,(){}[].#'.includes(ch)){ const sl=line, sc=col; tokens.push({type:TokenType.Punct, value: next(), line:sl, col:sc}); continue; }
+    // unknown
+    tokens.push({type: TokenType.Operator, value: next(), line, col});
+  }
+
+  tokens.push({type: TokenType.EOF, value:'<EOF>', line, col});
+  return tokens;
+}
+
+/* -----------------------
+   Parser (recursive-descent) for simplified C
+   - Builds AST or throws SyntaxError with token info
+   ----------------------- */
+
+function parse(tokens){
+  let i = 0;
+  const peek = (n=0) => tokens[i+n] || tokens[tokens.length-1];
+  const next = () => tokens[i++];
+
+  function tokenStr(t){ return `${t.type}("${t.value}")@${t.line}:${t.col}`; }
+  function error(msg, t=peek()){
+    const e = new SyntaxError(`${msg} at ${tokenStr(t)}`);
+    e.token = t;
+    throw e;
+  }
+
+  function expect(type, value){
+    const t = peek();
+    if(t.type !== type || (value !== undefined && t.value !== value)) error(`Expected ${value ?? type}`, t);
+    return next();
+  }
+
+  function optional(type, value){
+    const t = peek();
+    if(t.type === type && (value === undefined || t.value === value)) return next();
+    return null;
+  }
+
+  // Top level: TranslationUnit
+  function parseTranslationUnit(){
+    const items = [];
+    while(peek().type !== TokenType.EOF){
+      // skip comments and preproc
+      if(peek().type === TokenType.Comment || peek().type === TokenType.Preproc){ items.push(next()); continue; }
+      // distinguish function definition vs declaration by looking ahead for '(' then ')' then '{'
+      if(isTypeSpec(peek())){
+        // clone index
+        let j = i;
+        // consume type
+        j++;
+        // maybe identifier
+        if(tokens[j] && tokens[j].type === TokenType.Identifier) j++;
+        // if '(' then function or declarator
+        if(tokens[j] && tokens[j].type === TokenType.Punct && tokens[j].value === '('){
+          // scan forward to find ')' then '{'
+          // find matching ')'
+          let k = j+1, depth=1;
+          while(k < tokens.length && depth>0){
+            if(tokens[k].type === TokenType.Punct && tokens[k].value === '(') depth++;
+            else if(tokens[k].type === TokenType.Punct && tokens[k].value === ')') depth--;
+            k++;
+          }
+          // skip whitespace/comments not tokens; check next token for '{'
+          if(tokens[k] && tokens[k].type === TokenType.Punct && tokens[k].value === '{'){
+            // function definition
+            items.push(parseFunctionDef());
             continue;
           }
-
-          if (ch === "/" && peek(1) === "/") {
-            let buf = "";
-            while (peek() !== "\n" && peek() !== "\0") buf += next();
-            addToken(TokenType.Comment, "//" + buf, startLine, startCol);
-            continue;
-          }
-          if (ch === "/" && peek(1) === "*") {
-            let buf = next();
-            buf += next();
-            while (!(peek() === "*" && peek(1) === "/") && peek() !== "\0")
-              buf += next();
-            if (peek() === "*" && peek(1) === "/") {
-              buf += next();
-              buf += next();
-            }
-            addToken(TokenType.Comment, buf, startLine, startCol);
-            continue;
-          }
-
-          if (ch === '"' || ch === "'") {
-            const quote = next();
-            let buf = quote;
-            while (peek() !== quote && peek() !== "\0") {
-              if (peek() === "\\") {
-                buf += next();
-                buf += next();
-                continue;
-              }
-              buf += next();
-            }
-            if (peek() === quote) buf += next();
-            addToken(TokenType.String, buf, startLine, startCol);
-            continue;
-          }
-
-          if (isDigit(ch)) {
-            let buf = "";
-            while (isDigit(peek())) buf += next();
-            if (peek() === "." && isDigit(peek(1))) {
-              buf += next();
-              while (isDigit(peek())) buf += next();
-            }
-            addToken(TokenType.Number, buf, startLine, startCol);
-            continue;
-          }
-
-          if (isLetter(ch)) {
-            let buf = "";
-            while (isLetter(peek()) || isDigit(peek())) buf += next();
-            if (keywords.has(buf))
-              addToken(TokenType.Keyword, buf, startLine, startCol);
-            else addToken(TokenType.Identifier, buf, startLine, startCol);
-            continue;
-          }
-
-          const two = ch + peek(1);
-          const three = ch + peek(1) + peek(2);
-          const threeOps = new Set(["===", "!=="]);
-          const twoOps = new Set([
-            "==",
-            "!=",
-            "<=",
-            ">=",
-            "&&",
-            "||",
-            "++",
-            "--",
-            "+=",
-            "-=",
-            "*=",
-            "/=",
-            "=>",
-          ]);
-          const oneOps = new Set([
-            "+",
-            "-",
-            "*",
-            "%",
-            "=",
-            "<",
-            ">",
-            "!",
-            "&",
-            "|",
-            "^",
-            "~",
-            "?",
-          ]);
-
-          if (threeOps.has(three)) {
-            addToken(TokenType.Operator, three, startLine, startCol);
-            next();
-            next();
-            next();
-            continue;
-          }
-          if (twoOps.has(two)) {
-            addToken(TokenType.Operator, two, startLine, startCol);
-            next();
-            next();
-            continue;
-          }
-          if (oneOps.has(ch)) {
-            addToken(TokenType.Operator, ch, startLine, startCol);
-            next();
-            continue;
-          }
-
-          const punct = new Set([
-            ";",
-            ",",
-            "(",
-            ")",
-            "{",
-            "}",
-            "[",
-            "]",
-            ".",
-            ":",
-          ]);
-          if (punct.has(ch)) {
-            addToken(TokenType.Punctuation, ch, startLine, startCol);
-            next();
-            continue;
-          }
-
-          addToken(TokenType.Unknown, ch, startLine, startCol);
-          next();
-        }
-
-        return tokens;
-      }
-
-      const src = document.getElementById("source");
-      const scanBtn = document.getElementById("scanBtn");
-      const clearBtn = document.getElementById("clearBtn");
-      const sampleBtn = document.getElementById("sampleBtn");
-      const results = document.getElementById("results");
-
-      function renderTokens(tokens) {
-        if (tokens.length === 0) {
-          results.innerHTML = '<div class="muted">No tokens</div>';
-          return;
-        }
-        let html =
-          '<table><thead style="border-radiues=15px"><tr><th>Type</th><th>Lexeme</th><th style="width:30px">Line</th><th style="width:30px">Col</th></tr></thead><tbody>';
-        for (const t of tokens) {
-          html += `<tr data-lex="${escapeHtml(t.value)}"><td>${
-            t.type
-          }</td><td>${escapeHtml(t.value)}</td><td>${t.line}</td><td>${
-            t.col
-          }</td></tr>`;
-        }
-        html += "</tbody></table>";
-        results.innerHTML = html;
-
-        for (const tr of results.querySelectorAll("tr[data-lex]")) {
-          tr.addEventListener("click", () => {
-            const lex = tr.getAttribute("data-lex");
-            navigator.clipboard
-              ?.writeText(lex)
-              .then(() => {
-                tr.style.background = "#e6f0ff";
-                setTimeout(() => (tr.style.background = ""), 350);
-              })
-              .catch(() => {});
-          });
         }
       }
+      // otherwise declaration or other
+      items.push(parseDeclarationOrExpr());
+    }
+    return {type:'TranslationUnit', items};
+  }
 
-      function escapeHtml(s) {
-        return (s + "")
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/\"/g, "&quot;");
+  function isTypeSpec(t){
+    return t && t.type === TokenType.Keyword && ['int','char','float','double','void','short','long','signed','unsigned','const','static','struct','typedef'].includes(t.value);
+  }
+
+  function parseDeclarationOrExpr(){
+    if(isTypeSpec(peek())) return parseDeclaration();
+    // else expression or error
+    const expr = parseExpression();
+    if(peek().type === TokenType.Punct && peek().value === ';') next();
+    else error('Expected ; after expression or declaration', peek());
+    return {type:'ExprStmt', expression: expr};
+  }
+
+  function parseDeclaration(){
+    const spec = next().value; // type keyword (simplified)
+    // simple declarator list
+    const decls = [];
+    if(peek().type !== TokenType.Identifier) error('Expected identifier in declaration', peek());
+    do{
+      const id = next().value;
+      let init = null;
+      if(peek().type === TokenType.Operator && peek().value === '='){ next(); init = parseExpression(); }
+      decls.push({id, init});
+      if(peek().type === TokenType.Punct && peek().value === ',') next(); else break;
+    } while(true);
+    if(peek().type === TokenType.Punct && peek().value === ';') next();
+    else error('Expected ; after declaration', peek());
+    return {type:'Declaration', spec, decls};
+  }
+
+  function parseFunctionDef(){
+    const spec = next().value; // type
+    if(peek().type !== TokenType.Identifier) error('Expected function name', peek());
+    const name = next().value;
+    expect(TokenType.Punct, '(');
+    const params = [];
+    if(!(peek().type === TokenType.Punct && peek().value === ')')){
+      do{
+        if(!isTypeSpec(peek())) error('Expected type in parameter', peek());
+        const ptype = next().value;
+        let pname = null;
+        if(peek().type === TokenType.Identifier) pname = next().value;
+        params.push({type: ptype, name: pname});
+        if(peek().type === TokenType.Punct && peek().value === ',') next(); else break;
+      } while(true);
+    }
+    expect(TokenType.Punct, ')');
+    const body = parseCompoundStmt();
+    return {type:'FunctionDef', spec, name, params, body};
+  }
+
+  function parseCompoundStmt(){
+    expect(TokenType.Punct, '{');
+    const items = [];
+    while(!(peek().type === TokenType.Punct && peek().value === '}')){
+      if(peek().type === TokenType.EOF) error('Unterminated compound statement', peek());
+      if(peek().type === TokenType.Comment || peek().type === TokenType.Preproc){ items.push(next()); continue; }
+      if(isTypeSpec(peek())) items.push(parseDeclaration());
+      else items.push(parseStatement());
+    }
+    expect(TokenType.Punct, '}');
+    return {type:'CompoundStmt', body: items};
+  }
+
+  function parseStatement(){
+    const t = peek();
+    if(t.type === TokenType.Keyword && t.value === 'if') return parseIf();
+    if(t.type === TokenType.Keyword && t.value === 'while') return parseWhile();
+    if(t.type === TokenType.Keyword && t.value === 'for') return parseFor();
+    if(t.type === TokenType.Keyword && t.value === 'return') return parseReturn();
+    if(t.type === TokenType.Punct && t.value === '{') return parseCompoundStmt();
+    // expression statement
+    const expr = parseExpression();
+    if(peek().type === TokenType.Punct && peek().value === ';') next();
+    else error('Expected ; after expression', peek());
+    return {type:'ExprStmt', expression: expr};
+  }
+
+  function parseIf(){
+    expect(TokenType.Keyword, 'if');
+    expect(TokenType.Punct, '(');
+    const test = parseExpression();
+    expect(TokenType.Punct, ')');
+    const consequent = parseStatement();
+    let alternate = null;
+    if(peek().type === TokenType.Keyword && peek().value === 'else'){ next(); alternate = parseStatement(); }
+    return {type:'IfStmt', test, consequent, alternate};
+  }
+
+  function parseWhile(){
+    expect(TokenType.Keyword, 'while');
+    expect(TokenType.Punct, '(');
+    const test = parseExpression();
+    expect(TokenType.Punct, ')');
+    const body = parseStatement();
+    return {type:'WhileStmt', test, body};
+  }
+
+  function parseFor(){
+    expect(TokenType.Keyword, 'for');
+    expect(TokenType.Punct, '(');
+    let init = null;
+    if(isTypeSpec(peek())) init = parseDeclaration();
+    else if(!(peek().type === TokenType.Punct && peek().value === ';')) init = (function(){ const e = parseExpression(); if(peek().type === TokenType.Punct && peek().value === ';') next(); else error('Expected ; in for', peek()); return e; })();
+    else next(); // consume ;
+    let test = null;
+    if(!(peek().type === TokenType.Punct && peek().value === ';')) test = parseExpression();
+    expect(TokenType.Punct, ';');
+    let update = null;
+    if(!(peek().type === TokenType.Punct && peek().value === ')')) update = parseExpression();
+    expect(TokenType.Punct, ')');
+    const body = parseStatement();
+    return {type:'ForStmt', init, test, update, body};
+  }
+
+  function parseReturn(){
+    expect(TokenType.Keyword, 'return');
+    let expr = null;
+    if(!(peek().type === TokenType.Punct && peek().value === ';')) expr = parseExpression();
+    if(peek().type === TokenType.Punct && peek().value === ';') next();
+    else error('Expected ; after return', peek());
+    return {type:'ReturnStmt', argument: expr};
+  }
+
+  // Expression parsing (precedence climbing style via recursive descent)
+  function parseExpression(){ return parseAssignment(); }
+
+  function parseAssignment(){
+    const left = parseLogical();
+    if(peek().type === TokenType.Operator && ['=','+=','-=','*=','/=','%='].includes(peek().value)){
+      const op = next().value;
+      const right = parseAssignment();
+      return {type:'AssignmentExpression', operator: op, left, right};
+    }
+    return left;
+  }
+
+  function parseLogical(){
+    let node = parseEquality();
+    while(peek().type === TokenType.Operator && (peek().value === '&&' || peek().value === '||')){
+      const op = next().value;
+      const right = parseEquality();
+      node = {type:'LogicalExpression', operator:op, left:node, right};
+    }
+    return node;
+  }
+
+  function parseEquality(){
+    let node = parseRelational();
+    while(peek().type === TokenType.Operator && (peek().value === '==' || peek().value === '!=')){
+      const op = next().value;
+      const right = parseRelational();
+      node = {type:'BinaryExpression', operator:op, left:node, right};
+    }
+    return node;
+  }
+
+  function parseRelational(){
+    let node = parseAdd();
+    while(peek().type === TokenType.Operator && ['<','>','<=','>='].includes(peek().value)){
+      const op = next().value;
+      const right = parseAdd();
+      node = {type:'BinaryExpression', operator:op, left:node, right};
+    }
+    return node;
+  }
+
+  function parseAdd(){
+    let node = parseMul();
+    while(peek().type === TokenType.Operator && (peek().value === '+' || peek().value === '-')){
+      const op = next().value;
+      const right = parseMul();
+      node = {type:'BinaryExpression', operator:op, left:node, right};
+    }
+    return node;
+  }
+
+  function parseMul(){
+    let node = parseUnary();
+    while(peek().type === TokenType.Operator && (peek().value === '*' || peek().value === '/' || peek().value === '%')){
+      const op = next().value;
+      const right = parseUnary();
+      node = {type:'BinaryExpression', operator:op, left:node, right};
+    }
+    return node;
+  }
+
+  function parseUnary(){
+    if(peek().type === TokenType.Operator && ['!','~','+','-','++','--'].includes(peek().value)){
+      const op = next().value;
+      const arg = parseUnary();
+      return {type:'UnaryExpression', operator:op, argument:arg};
+    }
+    return parsePostfix();
+  }
+
+  function parsePostfix(){
+    let node = parsePrimary();
+    while(true){
+      if(peek().type === TokenType.Punct && peek().value === '('){
+        // function call
+        next(); // (
+        const args = [];
+        if(!(peek().type === TokenType.Punct && peek().value === ')')){
+          do{
+            args.push(parseExpression());
+            if(peek().type === TokenType.Punct && peek().value === ',') next(); else break;
+          } while(true);
+        }
+        expect(TokenType.Punct, ')');
+        node = {type:'CallExpression', callee: node, arguments: args};
+        continue;
       }
+      if(peek().type === TokenType.Punct && peek().value === '['){
+        next(); const index = parseExpression(); expect(TokenType.Punct, ']');
+        node = {type:'ArrayAccess', array: node, index};
+        continue;
+      }
+      break;
+    }
+    return node;
+  }
 
-      scanBtn.addEventListener("click", () => {
-        const code = src.value;
-        const tokens = scan(code);
-        renderTokens(tokens);
-      });
+  function parsePrimary(){
+    const t = peek();
+    if(t.type === TokenType.Number){ next(); return {type:'Literal', kind:'number', value: Number(t.value)}; }
+    if(t.type === TokenType.Char){ next(); return {type:'Literal', kind:'char', value: t.value}; }
+    if(t.type === TokenType.String){ next(); return {type:'Literal', kind:'string', value: t.value}; }
+    if(t.type === TokenType.Identifier){ next(); return {type:'Identifier', name: t.value}; }
+    if(t.type === TokenType.Punct && t.value === '('){ next(); const e = parseExpression(); expect(TokenType.Punct, ')'); return e; }
+    error('Unexpected primary expression', t);
+  }
 
-      clearBtn.addEventListener("click", () => {
-        src.value = "";
-        results.innerHTML = "";
-      });
-      sampleBtn.addEventListener("click", () => {
-        src.value = `// demo sample\nfunction sum(x,y){\n  return x + y * 10;\n}\nconsole.log(sum(2,3));`;
-      });
+  return parseTranslationUnit();
+}
 
-      window.addEventListener("load", () => scanBtn.click());
-    </script>
-  </body>
+/* -----------------------
+   UI wiring
+   ----------------------- */
+
+const src = document.getElementById('source');
+const scanBtn = document.getElementById('scanBtn');
+const parseBtn = document.getElementById('parseBtn');
+const validateBtn = document.getElementById('validateBtn');
+const clearBtn = document.getElementById('clearBtn');
+const loadBtn = document.getElementById('loadBtn');
+
+const tokensDiv = document.getElementById('tokens');
+const astDiv = document.getElementById('ast');
+const statusDiv = document.getElementById('status');
+
+function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function renderTokens(tokens){
+  let html = '<table><thead><tr><th>Type</th><th>Value</th><th>Line:Col</th></tr></thead><tbody>';
+  for(const tk of tokens){
+    const v = escapeHtml(String(tk.value));
+    html += `<tr><td>${tk.type}</td><td><code>${v}</code></td><td>${tk.line || ''}:${tk.col || ''}</td></tr>`;
+  }
+  html += '</tbody></table>';
+  tokensDiv.innerHTML = html;
+}
+
+function renderAST(ast){
+  astDiv.innerHTML = '<pre>' + escapeHtml(JSON.stringify(ast, null, 2)) + '</pre>';
+}
+
+scanBtn.addEventListener('click', ()=>{
+  try{
+    const t = lexer(src.value);
+    renderTokens(t);
+    statusDiv.innerHTML = '<div class="ok">Scan successful — ' + (t.length-1) + ' tokens (including EOF)</div>';
+    astDiv.innerHTML = '<em>No AST yet — press Parse</em>';
+  }catch(e){
+    tokensDiv.innerHTML = '<div class="error">Scan error: '+escapeHtml(e.message)+'</div>';
+  }
+});
+
+parseBtn.addEventListener('click', ()=>{
+  try{
+    const t = lexer(src.value);
+    renderTokens(t);
+    const ast = parse(t);
+    renderAST(ast);
+    statusDiv.innerHTML = '<div class="ok">Parse successful — no syntax errors found.</div>';
+  }catch(e){
+    const token = e.token;
+    let m = e.message;
+    if(token) m += ` (near ${token.type} "${token.value}" at ${token.line}:${token.col})`;
+    astDiv.innerHTML = '<div class="error"><strong>Syntax Error:</strong> ' + escapeHtml(m) + '</div>';
+    statusDiv.innerHTML = '<div class="error">Syntax error detected.</div>';
+  }
+});
+
+validateBtn.addEventListener('click', ()=>{
+  try{
+    const t = lexer(src.value);
+    const ast = parse(t);
+    statusDiv.innerHTML = '<div class="ok">Valid C syntax ✓</div>';
+    renderTokens(t);
+    astDiv.innerHTML = '<em>Valid syntax — AST available via Parse</em>';
+  }catch(e){
+    astDiv.innerHTML = '<div class="error"><strong>Syntax Error:</strong> ' + escapeHtml(e.message) + '</div>';
+    statusDiv.innerHTML = '<div class="error">Invalid syntax ✗</div>';
+  }
+});
+
+clearBtn.addEventListener('click', ()=>{
+  src.value = '';
+  tokensDiv.innerHTML = '<em>No tokens yet</em>';
+  astDiv.innerHTML = '<em>No AST yet</em>';
+  statusDiv.innerHTML = '<em>Idle</em>';
+});
+
+loadBtn.addEventListener('click', ()=>{
+  src.value = `#include <stdio.h>
+
+int add(int a, int b) {
+  return a + b;
+}
+
+int main() {
+  int x = add(1, 2);
+  if (x > 2) {
+    x = x - 1;
+  }
+  for (int i = 0; i < 3; i = i + 1) {
+    x = x + i;
+  }
+  return 0;
+}
+`;
+});
+
+</script>
+</body>
 </html>
