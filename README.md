@@ -13,8 +13,7 @@ Everything runs entirely inside the browser — no backend required.
 
 ## 📸 Preview
 
-> *(Replace with your actual screenshot)*  
-> `![Scanner + Parser Preview](assets/Screenshot_11-12-2025_215548_.jpeg)`
+> ![Scanner + Parser Preview](assets/Screenshot_11-12-2025_215548_.jpeg)
 
 ---
 
@@ -65,10 +64,4 @@ Supported syntax includes:
 - Compound statements (`{ ... }`)
 
 AST output is shown in a clean **scrollable panel**.
-
----
-
-## 📘 Grammar (Simplified C Subset)
-
-The parser is based on the following grammar outline:
 
